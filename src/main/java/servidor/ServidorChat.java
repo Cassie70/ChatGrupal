@@ -1,5 +1,7 @@
 package servidor;
 
+import cliente.JsonObject;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -25,6 +27,10 @@ public class ServidorChat {
                     System.out.println("se ha recibido datagrama desde"+p.getAddress()+":"+p.getPort());
                     System.out.println(msg);
                     s.send(p);
+
+                    JsonObject json = new JsonObject(msg);
+                    System.out.println("json recibido: "+ json);
+                    System.out.println("del usuario"+ json.get("username"));
                 }catch (IOException e){
                     System.err.println("Error al recibir el paquete: "+e.getMessage());
                 }

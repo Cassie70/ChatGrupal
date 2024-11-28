@@ -3,7 +3,10 @@ package cliente;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.*;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 public class clienteChat {
 
@@ -45,11 +48,11 @@ public class clienteChat {
             handleCommand(msg);
         }
 
-        JsonObject.put("username",username);
-        JsonObject.put("type","msg");
-        JsonObject.put("content",msg);
-        JsonObject.printJson();
-        byte[] buffer = JsonObject.getJson().getBytes();
+        JsonObject json = new JsonObject();
+        json.put("username",username).put("content", msg);
+
+        byte[] buffer = json.toString().getBytes();
+
         DatagramPacket requestPacket = new DatagramPacket(buffer, buffer.length, dst, port);
 
         try {
