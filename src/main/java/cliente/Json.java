@@ -3,20 +3,20 @@ package cliente;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class JsonObject {
+public class Json {
 
     private final Map<String, Object> data;
 
-    public JsonObject() {
+    public Json() {
         data = new LinkedHashMap<>();
     }
 
-    public JsonObject(String jsonString){
-        data = JsonObject.fromString(jsonString).data;
+    public Json(String jsonString) {
+        data = Json.fromString(jsonString).data;
     }
 
-    private static JsonObject fromString(String jsonString) {
-        JsonObject json = new JsonObject();
+    private static Json fromString(String jsonString) {
+        Json json = new Json();
         int state = 0;
         StringBuilder stringBuilder = new StringBuilder();
         String key = "", value;
@@ -84,16 +84,27 @@ public class JsonObject {
                             if (c == '}') balance--;
                             subObjectBuilder.append(c);
                         }
-                        JsonObject subObject = fromString(subObjectBuilder.toString());
+                        Json subObject = fromString(subObjectBuilder.toString());
                         json.put(key, subObject);
                         key = "";
                         state = 8;
                     } else {
-                        throw new IllegalArgumentException("invalid value.");
-                    }break;
+                        throw new IllegalArgumentException("Invalid value.");
+                    }
+                    break;
 
                 case 5:
-                    if (c != '"') {
+                    if (c == '\\') {
+                        // Handle escape sequence in string
+                        stringBuilder.append(c);
+                        i++;  // Skip the next character after the escape sequence
+                        if (i < jsonString.length()) {
+                            c = jsonString.charAt(i);
+                            stringBuilder.append(c);
+                        } else {
+                            throw new IllegalArgumentException("Incomplete escape sequence.");
+                        }
+                    } else if (c != '"') {
                         stringBuilder.append(c);
                     } else {
                         value = stringBuilder.toString();
@@ -154,9 +165,10 @@ public class JsonObject {
                     } else if (c == '}') {
                         return json;
                     } else {
-                        throw new IllegalArgumentException("expected ',' o '}'" );
+                        throw new IllegalArgumentException("expected ',' or '}'");
                     }
                     break;
+
                 case 9:
                     List<Object> list = new ArrayList<>();
                     while (c != ']') {
@@ -169,7 +181,20 @@ public class JsonObject {
                         if (c == '"') {
                             stringBuilder.setLength(0);
                             while (++i < jsonString.length() && jsonString.charAt(i) != '"') {
-                                stringBuilder.append(jsonString.charAt(i));
+                                c = jsonString.charAt(i);
+                                if (c == '\\') {
+                                    // Handle escape sequence in string
+                                    stringBuilder.append(c);
+                                    i++;
+                                    if (i < jsonString.length()) {
+                                        c = jsonString.charAt(i);
+                                        stringBuilder.append(c);
+                                    } else {
+                                        throw new IllegalArgumentException("Incomplete escape sequence.");
+                                    }
+                                } else {
+                                    stringBuilder.append(c);
+                                }
                             }
                             list.add(stringBuilder.toString());
                         } else if (Character.isDigit(c) || c == '-' || c == '.') {
@@ -185,7 +210,7 @@ public class JsonObject {
                                 list.add(Integer.parseInt(stringBuilder.toString()));
                             }
                         } else if (c == ',') {
-
+                            // Just continue to next element
                         } else if (c == ']') {
                             break;
                         } else {
@@ -199,51 +224,53 @@ public class JsonObject {
                     key = "";
                     state = 8;
                     break;
+
                 default:
                     throw new IllegalStateException("invalid state: " + state);
             }
         }
 
-        throw new IllegalArgumentException("JSON uncompleted.");
+        throw new IllegalArgumentException("JSON incomplete.");
     }
 
-    public JsonObject put(String key, String value) {
+
+    public Json put(String key, String value) {
         validateKey(key);
         data.put(key, value);
         return this;
     }
 
-    public JsonObject put(String key, JsonObject json) {
+    public Json put(String key, Json json) {
         validateKey(key);
         data.put(key, json);
         return this;
     }
 
-    public JsonObject put(String key, Number value) {
+    public Json put(String key, Number value) {
         validateKey(key);
         data.put(key, value);
         return this;
     }
 
-    public JsonObject put(String key, boolean value) {
+    public Json put(String key, boolean value) {
         validateKey(key);
         data.put(key, value);
         return this;
     }
 
-    public JsonObject put(String key, List<?> values) {
+    public Json put(String key, List<?> values) {
         validateKey(key);
         data.put(key, values);
         return this;
     }
 
-    public JsonObject put(String key) {
+    public Json put(String key) {
         validateKey(key);
         data.put(key, null);
         return this;
     }
 
-    public JsonObject remove(String key) {
+    public Json remove(String key) {
         validateKey(key);
         data.remove(key);
         return this;
@@ -278,8 +305,8 @@ public class JsonObject {
 
     private String formatValue(Object value) {
         return switch (value) {
-            case String _ -> "\"" + value + "\"";
-            case JsonObject _ -> value.toString();
+            case String str -> "\"" + escapeQuotes(str) + "\"";
+            case Json json -> json.toString();
             case List<?> list -> formatList(list);
             case null, default -> String.valueOf(value);
         };
@@ -287,8 +314,13 @@ public class JsonObject {
 
     private String formatList(List<?> list) {
         return list.stream()
-                .map(item -> item instanceof String ? "\"" + item + "\"" : item.toString())
+                .map(item -> item instanceof String ? "\"" + escapeQuotes((String) item) + "\"" : item.toString())
                 .collect(Collectors.joining(",", "[", "]"));
+    }
+
+
+    private String escapeQuotes(String str) {
+        return str.replace("\"", "\\\"");
     }
 
     private void validateKey(String key) {
@@ -296,5 +328,4 @@ public class JsonObject {
             throw new IllegalArgumentException("null key");
         }
     }
-
 }
