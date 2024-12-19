@@ -25,10 +25,6 @@ public class JsonObject {
         for (int i = 0; i < jsonString.length(); i++) {
             c = jsonString.charAt(i);
 
-            if (Character.isWhitespace(c)) {
-                continue;
-            }
-
             switch (state) {
                 case 0:
                     if (c == '{') {
