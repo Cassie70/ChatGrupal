@@ -1,6 +1,6 @@
 package servidor;
 
-import cliente.JsonObject;
+import cliente.Json;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -28,7 +28,7 @@ public class ServidorChat {
                     System.out.println(msg);
                     s.send(p);
 
-                    JsonObject json = new JsonObject(msg);
+                    Json json = new Json(msg);
                     System.out.println("json recibido: "+ json);
                     System.out.println("del usuario"+ json.get("username"));
                 }catch (IOException e){

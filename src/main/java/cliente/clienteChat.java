@@ -3,10 +3,14 @@ package cliente;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.reflect.Array;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class clienteChat {
 
@@ -31,6 +35,7 @@ public class clienteChat {
                         cl.close();
                         System.exit(0);
                     } else {
+
                         sendMessage(username,cl, dst, port, msj);
                     }
                 }
@@ -42,13 +47,14 @@ public class clienteChat {
         }
     }
 
+
     private static void sendMessage(String username,DatagramSocket cl, InetAddress dst, int port, String msg) {
 
+        Json json = new Json();
         if(msg.charAt(0) == '/'){
-            handleCommand(msg);
+            handleCommand(msg, json);
         }
 
-        JsonObject json = new JsonObject();
         json.put("username",username).put("content", msg);
 
         byte[] buffer = json.toString().getBytes();
@@ -72,9 +78,69 @@ public class clienteChat {
         System.out.println("Respuesta del servidor: \n" + response);
     }
 
-    private static void handleCommand(String msg) {
+    private static void handleCommand(String msg, Json json) {
+
+        HashSet<String> commands = new HashSet<>();
+        commands.add("upload");
+        commands.add("msg");
+        commands.add("audio");
+
+        String[] commmandParts = splitCommand(msg);
+        System.out.println(Arrays.toString(commmandParts));
+
+        if(commmandParts.length > 0){
+            if(commands.contains(commmandParts[0])){
+                String command = commmandParts[0];
+                json
+                        .put("command", new Json()
+                                .put("name", commmandParts[0])
+                                .put("params", List.of(Arrays.copyOfRange(commmandParts,1, commmandParts.length))));
+            }
+        }
     }
 
+    static String[] splitCommand(String command) {
+
+        List<String> parts = new ArrayList<>();
+        int state = 0;
+        StringBuilder part = new StringBuilder();
+
+        for (int i = 1; i < command.length(); i++) {
+            char c = command.charAt(i);
+
+            switch (state) {
+                case 0: // Outside quotes
+                    if (c == '"') {
+                        state = 1;
+                    } else if (c == ' ') {
+                        if (!part.isEmpty()) {
+                            parts.add(part.toString());
+                            part.setLength(0);
+                        }
+                    } else {
+                        part.append(c);
+                    }
+                    break;
+
+                case 1: // Inside quotes
+                    if (c == '"') {
+                        state = 0;
+                    } else {
+                        part.append(c);
+                    }
+                    break;
+
+                default:
+                    throw new IllegalStateException("Invalid state: " + state);
+            }
+        }
+
+        if (!part.isEmpty()) {
+            parts.add(part.toString());
+        }
+
+        return parts.toArray(new String[0]);
+    }
 
 }
 
