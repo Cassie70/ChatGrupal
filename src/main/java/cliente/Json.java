@@ -258,6 +258,12 @@ public class Json {
         return this;
     }
 
+    public Json put(String key, byte[] value) {
+        validateKey(key);
+        data.put(key, value);
+        return this;
+    }
+
     public Json put(String key, List<?> values) {
         validateKey(key);
         data.put(key, values);

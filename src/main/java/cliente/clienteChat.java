@@ -3,32 +3,26 @@ package cliente;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class clienteChat {
 
-    static String dir = "127.0.0.1";
     public static void main(String[] args) {
         int port = 9931;
         String username;
+        HashSet<String> users = new HashSet<>();
 
-        BufferedReader br = null;
-        try {
-            br = new BufferedReader(new InputStreamReader(System.in,"ISO-8859-1"));
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
-        }
-        Enumeration<NetworkInterface> nets = null;
+        BufferedReader br;
+        br = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.ISO_8859_1));
+        Enumeration<NetworkInterface> nets;
         try {
             nets = NetworkInterface.getNetworkInterfaces();
         } catch (SocketException e) {
             throw new RuntimeException(e);
         }
-        int interfazSeleccionada = -1; // Índice real de la interfaz seleccionada
+        int interfazSeleccionada; // Índice real de la interfaz seleccionada
 
         for (NetworkInterface netint : Collections.list(nets)) {
             int indiceReal = netint.getIndex(); // Índice real del sistema
@@ -46,7 +40,7 @@ public class clienteChat {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        NetworkInterface ni = null;
+        NetworkInterface ni;
         try {
             ni = NetworkInterface.getByIndex(interfazSeleccionada);
         } catch (SocketException e) {
@@ -57,48 +51,54 @@ public class clienteChat {
             return;
         }
 
-        try {
-            InetAddress dst = InetAddress.getByName(dir);
-            br = new BufferedReader(new InputStreamReader(System.in));
-
-            try (MulticastSocket cl = new MulticastSocket(port)) {
-                cl.setReuseAddress(true);
-                cl.setTimeToLive(255);
-                String dir= "231.1.1.1";
-                InetAddress gpo = InetAddress.getByName(dir);
-                SocketAddress dirm;
-                System.out.println("Ingresa tu nombre de usuario:");
+        br = new BufferedReader(new InputStreamReader(System.in));
+        try (MulticastSocket cl = new MulticastSocket(port)) {
+            cl.setReuseAddress(true);
+            cl.setTimeToLive(255);
+            String dir= "231.1.1.1";
+            InetAddress gpo = InetAddress.getByName(dir);
+            SocketAddress dirm;
+            System.out.println("Ingresa tu nombre de usuario:");
+            while (true) {
                 username = br.readLine();
-                try{
-                    dirm = new InetSocketAddress(gpo,port);
-                }catch(Exception e){
-                    e.printStackTrace();
-                    return;
+                if (username.contains(" ")) {
+                    System.out.println("El nombre de usuario no puede contener espacios. Inténtalo de nuevo:");
+                } else {
+                    break;
                 }
-                cl.joinGroup(dirm,ni);
-                System.out.println("Socket unido al grupo "+gpo);
-
-                Recibe r = new Recibe(cl, username);
-                Envia e = new Envia(cl, br, username);
-                e.setPriority(10);
-                r.start();
-                e.start();
-                try {
-                    r.join();
-                } catch (InterruptedException ex) {
-                    throw new RuntimeException(ex);
-                }
-                try {
-                    e.join();
-                } catch (InterruptedException ex) {
-                    throw new RuntimeException(ex);
-                }
-
-            } catch (IOException e) {
-                System.err.println("Error al leer el mensaje: "+e.getMessage());
             }
-        } catch (UnknownHostException e) {
-            System.err.println("Host invalido");
+            try{
+                dirm = new InetSocketAddress(gpo,port);
+            }catch(Exception e){
+                System.err.println("Error al crear el socket: "+e.getMessage());
+                return;
+            }
+            cl.joinGroup(dirm,ni);
+            System.out.println("Socket unido al grupo "+gpo);
+            Json jsonJoin = new Json();
+            jsonJoin.put("type", "join").put("username", username);
+            cl.send(new DatagramPacket(jsonJoin.toString().getBytes(), jsonJoin.toString().getBytes().length, gpo, port));
+            Json rqUsers = new Json();
+            rqUsers.put("type", "users").put("username", username);
+            cl.send(new DatagramPacket(rqUsers.toString().getBytes(), rqUsers.toString().getBytes().length, gpo, port));
+            Envia e = new Envia(cl, br, username, users);
+            Recibe r = new Recibe(cl, username, users, e);
+            e.setPriority(10);
+            r.start();
+            e.start();
+            try {
+                r.join();
+            } catch (InterruptedException ex) {
+                throw new RuntimeException(ex);
+            }
+            try {
+                e.join();
+            } catch (InterruptedException ex) {
+                throw new RuntimeException(ex);
+            }
+
+        } catch (IOException e) {
+            System.err.println("Error al leer el mensaje: "+e.getMessage());
         }
     }
 
@@ -111,7 +111,7 @@ public class clienteChat {
         for (InetAddress inetAddress : Collections.list(inetAddresses)) {
             System.out.printf("Direccion: %s\n", inetAddress);
         }
-        System.out.printf("\n");
+        System.out.print("\n");
     }
 }
 
